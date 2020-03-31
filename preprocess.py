@@ -19,7 +19,7 @@ class SVHN_loader(data.Dataset):
         x = self.data[index]
         y = self.target[index]
         if self.transform:
-            x = Image.fromarray(x.numpy())
+            x = Image.fromarray(x)
             x = self.transform(x)
         return x, y
 
@@ -35,13 +35,13 @@ def get_svhn(args, data_dir='./data/svhn/'):
                                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     train = datasets.SVHN(root=data_dir, split='train', download=True)
 
-    data = train.data
-    labels = train.targets
+    data = train.data.transpose(0,2,3,1)
+    labels = train.labels
     
-    normal_data = data[labels!=args.anormal_class]
-    normal_labels = labels[labels!=args.anormal_class]
-    anormal_data = data[labels==args.anormal_class]
-    anormal_labels = labels[labels==args.anormal_class]
+    normal_data = data[labels==args.normal_class]
+    normal_labels = labels[labels==args.normal_class]
+    anormal_data = data[labels!=args.normal_class]
+    anormal_labels = labels[labels!=args.normal_class]
     
     N_train = int(normal_data.shape[0]*0.8)
     
@@ -51,9 +51,9 @@ def get_svhn(args, data_dir='./data/svhn/'):
     dataloader_train = DataLoader(data_train, batch_size=args.batch_size, 
                                   shuffle=True, num_workers=0)
     
-    x_test = torch.cat((anormal_data, normal_data[N_train:]), dim=0) 
-    y_test = torch.cat((anormal_labels, normal_labels[N_train:]), dim=0)
-    y_test = np.where(y_test==args.anormal_class, 1, 0)
+    x_test = np.concatenate((anormal_data, normal_data[N_train:]), axis=0) 
+    y_test = np.concatenate((anormal_labels, normal_labels[N_train:]), axis=0)
+    y_test = np.where(y_test==args.normal_class, 0, 1)
     data_test = SVHN_loader(x_test, y_test, transform=transform)
     dataloader_test = DataLoader(data_test, batch_size=args.batch_size, 
                                  shuffle=True, num_workers=0)

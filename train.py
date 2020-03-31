@@ -27,11 +27,11 @@ class ALADTrainer:
             self.load_weights()
 
         optimizer_ge = optim.Adam(list(self.G.parameters()) +
-                                  list(self.E.parameters()), lr=self.args.lr, beta1=0.5)
+                                  list(self.E.parameters()), lr=self.args.lr, betas=(0.5, 0.999))
         params_ = list(self.Dxz.parameters()) \
                 + list(self.Dzz.parameters()) \
                 + list(self.Dxx.parameters())
-        optimizer_d = optim.Adam(params_, lr=self.args.lr, beta1=0.5)
+        optimizer_d = optim.Adam(params_, lr=self.args.lr, betas=(0.5, 0.999))
 
         fixed_z = Variable(torch.randn((16, self.args.latent_dim, 1, 1)),
                            requires_grad=False).to(self.device)
@@ -58,16 +58,16 @@ class ALADTrainer:
                 z_gen = self.E(x_real)
 
                 #Discriminatorxz
-                out_truexz = self.Dxz(x_real, z_gen)
-                out_fakexz = self.Dxz(x_gen, z_real)
+                out_truexz, _ = self.Dxz(x_real, z_gen)
+                out_fakexz, _ = self.Dxz(x_gen, z_real)
 
                 #Discriminatorzz
-                out_truezz = self.Dxz(z_real, z_real)
-                out_fakezz = self.Dxz(z_real, self.E(self.G(z_real)))
+                out_truezz, _ = self.Dzz(z_real, z_real)
+                out_fakezz, _ = self.Dzz(z_real, self.E(self.G(z_real)))
 
                 #Discriminatorxx
-                out_truexx = self.Dxx(x_real, x_real)
-                out_fakexx = self.Dxx(x_real, self.G(self.E(x_real)))
+                out_truexx, _ = self.Dxx(x_real, x_real)
+                out_fakexx, _ = self.Dxx(x_real, self.G(self.E(x_real)))
 
                 #Losses
                 loss_dxz = criterion(out_truexz, y_true) + criterion(out_fakexz, y_fake)
@@ -97,6 +97,7 @@ class ALADTrainer:
             print("Training... Epoch: {}, Discrimiantor Loss: {:.3f}, Generator Loss: {:.3f}".format(
                 epoch, d_losses/len(self.train_loader), ge_losses/len(self.train_loader)
             ))
+        self.save_weights()
 
     def build_models(self):           
         self.G = Generator(self.args.latent_dim).to(self.device)
@@ -121,7 +122,8 @@ class ALADTrainer:
                     'Encoder': state_dict_E,
                     'Discriminatorxz': state_dict_Dxz, 
                     'Discriminatorxx': state_dict_Dxx,
-                    'Discriminatorzz': state_dict_Dzz}, 'weights/model_parameters.pth')
+                    'Discriminatorzz': state_dict_Dzz}, 'weights/model_parameters_{}.pth'.format(
+                                                         self.args.normal_class))
 
     def load_weights(self):
         """Load weights."""
